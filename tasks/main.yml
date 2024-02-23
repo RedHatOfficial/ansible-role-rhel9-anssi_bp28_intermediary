@@ -422,7 +422,7 @@
   - low_complexity | bool
   - medium_disruption | bool
   - no_reboot_needed | bool
-  - '"yum" in ansible_facts.packages'
+  - '"dnf" in ansible_facts.packages'
   tags:
   - CCE-83457-2
   - CJIS-5.10.4.1
@@ -501,7 +501,7 @@
   - medium_disruption | bool
   - no_reboot_needed | bool
   - unknown_strategy | bool
-  - '"yum" in ansible_facts.packages'
+  - '"dnf" in ansible_facts.packages'
   tags:
   - CCE-83463-0
   - DISA-STIG-RHEL-09-214020
@@ -566,7 +566,17 @@
     option: gpgcheck
     value: '1'
     no_extra_spaces: true
-  loop: '{{ repo_grep_results.stdout | regex_findall( ''(.+\.repo):\[(.+)\]\n?'' ) }}'
+  loop: '{{ repo_grep_results.stdout |regex_findall( ''(.+\.repo):\[(.+)\]\n?'' ) if repo_grep_results is not skipped else
+    []}}'
+  when:
+  - DISA_STIG_RHEL_09_214025 | bool
+  - enable_strategy | bool
+  - ensure_gpgcheck_never_disabled | bool
+  - high_severity | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - no_reboot_needed | bool
+  - repo_grep_results is not skipped
   tags:
   - CCE-83464-8
   - CJIS-5.10.4.1
@@ -589,14 +599,6 @@
   - low_complexity
   - medium_disruption
   - no_reboot_needed
-  when:
-  - DISA_STIG_RHEL_09_214025 | bool
-  - enable_strategy | bool
-  - ensure_gpgcheck_never_disabled | bool
-  - high_severity | bool
-  - low_complexity | bool
-  - medium_disruption | bool
-  - no_reboot_needed | bool
 
 - name: Read permission of GPG key directory
   stat:
@@ -696,7 +698,9 @@
 
 - name: Set Fact - Valid fingerprints
   set_fact:
-    gpg_valid_fingerprints: ("567E347AD0044ADE55BA8A5F199E2F91FD431D51" "7E4624258C406535D56D6F135054E4A45A6340B3")
+    gpg_valid_fingerprints:
+    - 567E347AD0044ADE55BA8A5F199E2F91FD431D51
+    - 7E4624258C406535D56D6F135054E4A45A6340B3
   tags:
   - CCE-84180-9
   - CJIS-5.10.4.1
@@ -5341,7 +5345,7 @@
   replace:
     path: /etc/profile
     regexp: ^[^#].*TMOUT=.*
-    replace: declare -xr TMOUT={{ var_accounts_tmout }}
+    replace: typeset -xr TMOUT={{ var_accounts_tmout }}
   register: profile_replaced
   when:
   - DISA_STIG_RHEL_09_412035 | bool
@@ -5373,7 +5377,7 @@
     path: /etc/profile.d/tmout.sh
     create: true
     regexp: TMOUT=
-    line: declare -xr TMOUT={{ var_accounts_tmout }}
+    line: typeset -xr TMOUT={{ var_accounts_tmout }}
     state: present
   when:
   - DISA_STIG_RHEL_09_412035 | bool
@@ -9443,6 +9447,15 @@
   ansible.builtin.set_fact:
     world_writable_dirs: '{{ world_writable_dirs | union(item.stdout_lines) | list }}'
   loop: '{{ result_found_dirs.results }}'
+  when:
+  - DISA_STIG_RHEL_09_232240 | bool
+  - dir_perms_world_writable_root_owned | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - item is not skipped
   tags:
   - CCE-83903-5
   - DISA-STIG-RHEL-09-232240
@@ -9452,14 +9465,6 @@
   - medium_severity
   - no_reboot_needed
   - restrict_strategy
-  when:
-  - DISA_STIG_RHEL_09_232240 | bool
-  - dir_perms_world_writable_root_owned | bool
-  - low_complexity | bool
-  - medium_disruption | bool
-  - medium_severity | bool
-  - no_reboot_needed | bool
-  - restrict_strategy | bool
 
 - name: Ensure All World-Writable Directories Are Owned by root User - Ensure root Ownership on Local World Writable Directories
   ansible.builtin.file:
@@ -9700,6 +9705,15 @@
   ansible.builtin.set_fact:
     world_writable_dirs: '{{ world_writable_dirs | union(item.stdout_lines) | list }}'
   loop: '{{ result_found_dirs.results }}'
+  when:
+  - DISA_STIG_RHEL_09_232245 | bool
+  - dir_perms_world_writable_sticky_bits | bool
+  - low_complexity | bool
+  - low_disruption | bool
+  - medium_severity | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - result_found_dirs is not skipped and item is not skipped
   tags:
   - CCE-83895-3
   - DISA-STIG-RHEL-09-232245
@@ -9712,14 +9726,6 @@
   - medium_severity
   - no_reboot_needed
   - restrict_strategy
-  when:
-  - DISA_STIG_RHEL_09_232245 | bool
-  - dir_perms_world_writable_sticky_bits | bool
-  - low_complexity | bool
-  - low_disruption | bool
-  - medium_severity | bool
-  - no_reboot_needed | bool
-  - restrict_strategy | bool
 
 - name: Verify that All World-Writable Directories Have Sticky Bits Set - Ensure Sticky Bit is Set on Local World Writable
     Directories
@@ -10466,6 +10472,7 @@
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83892-0
@@ -10512,6 +10519,7 @@
   - mount_option_boot_noexec | bool
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83892-0
@@ -10607,6 +10615,7 @@
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83877-1
@@ -10669,6 +10678,7 @@
   - mount_option_boot_nosuid | bool
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83877-1
@@ -10761,6 +10771,7 @@
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83875-5
@@ -10813,6 +10824,7 @@
   - mount_option_home_noexec | bool
   - no_reboot_needed | bool
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83875-5
@@ -10913,6 +10925,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/home" in ansible_mounts
     | map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83894-6
@@ -10977,6 +10990,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/home" in ansible_mounts
     | map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83894-6
@@ -11101,6 +11115,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/opt" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83880-5
@@ -11149,6 +11164,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/opt" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83880-5
@@ -11230,6 +11246,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/srv" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83862-3
@@ -11278,6 +11295,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/srv" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83862-3
@@ -11376,6 +11394,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/tmp" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83885-4
@@ -11440,6 +11459,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/tmp" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83885-4
@@ -11545,6 +11565,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/tmp" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83872-2
@@ -11609,6 +11630,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/tmp" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83872-2
@@ -11714,6 +11736,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/log" in ansible_mounts
     | map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83887-0
@@ -11778,6 +11801,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/log" in ansible_mounts
     | map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83887-0
@@ -11883,6 +11907,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/log" in ansible_mounts
     | map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83870-6
@@ -11947,6 +11972,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/log" in ansible_mounts
     | map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83870-6
@@ -12035,6 +12061,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83865-6
@@ -12083,6 +12110,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83865-6
@@ -12164,6 +12192,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var" in ansible_mounts |
     map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83867-2
@@ -12212,6 +12241,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var" in ansible_mounts |
     map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83867-2
@@ -12298,6 +12328,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/tmp" in ansible_mounts
     | map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83866-4
@@ -12350,6 +12381,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/tmp" in ansible_mounts
     | map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83866-4
@@ -12437,6 +12469,7 @@
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/tmp" in ansible_mounts
     | map(attribute="mount") | list )
   - ("--fstab" | length == 0)
+  - device_name.stdout is defined and device_name.stdout_lines is defined
   - (device_name.stdout | length == 0)
   tags:
   - CCE-83863-1
@@ -12489,6 +12522,7 @@
   - no_reboot_needed | bool
   - ( ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"] and "/var/tmp" in ansible_mounts
     | map(attribute="mount") | list )
+  - mount_info is defined
   - (device_name.stdout is defined and (device_name.stdout | length > 0)) or ("--fstab" | length == 0)
   tags:
   - CCE-83863-1
@@ -13784,7 +13818,7 @@
   - restrict_strategy
   - selinux_state
 
-- name: Ensure python3-libsemanage installed
+- name: Configure the polyinstantiation_enabled SELinux Boolean - Ensure python3-libsemanage Installed
   package:
     name: python3-libsemanage
     state: present
@@ -13795,7 +13829,6 @@
   - medium_severity | bool
   - no_reboot_needed | bool
   - sebool_polyinstantiation_enabled | bool
-  - ( not ( lookup("env", "container") == "bwrap-osbuild" ) )
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
   tags:
   - CCE-84083-5
@@ -13806,7 +13839,7 @@
   - no_reboot_needed
   - sebool_polyinstantiation_enabled
 
-- name: Set SELinux boolean polyinstantiation_enabled accordingly
+- name: Configure the polyinstantiation_enabled SELinux Boolean - Set SELinux Boolean polyinstantiation_enabled Accordingly
   seboolean:
     name: polyinstantiation_enabled
     state: '{{ var_polyinstantiation_enabled }}'
@@ -13818,8 +13851,8 @@
   - medium_severity | bool
   - no_reboot_needed | bool
   - sebool_polyinstantiation_enabled | bool
-  - ( not ( lookup("env", "container") == "bwrap-osbuild" ) )
   - ansible_virtualization_type not in ["docker", "lxc", "openvz", "podman", "container"]
+  - ansible_facts.selinux.status == 'enabled'
   tags:
   - CCE-84083-5
   - enable_strategy
