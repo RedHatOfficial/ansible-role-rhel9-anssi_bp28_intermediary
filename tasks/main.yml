@@ -1191,7 +1191,7 @@
   - medium_disruption
   - no_reboot_needed
 
-- name: Read permission of GPG key directory
+- name: 'Ensure Red Hat GPG Key Installed: Read permission of GPG key directory'
   ansible.builtin.stat:
     path: /etc/pki/rpm-gpg/
   register: gpg_key_directory_permission
@@ -1224,7 +1224,7 @@
   - no_reboot_needed | bool
   - restrict_strategy | bool
 
-- name: Read signatures in GPG key
+- name: 'Ensure Red Hat GPG Key Installed: Read signatures in GPG key'
   ansible.builtin.command: gpg --show-keys --with-fingerprint --with-colons "/etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release"
   changed_when: false
   register: gpg_fingerprints
@@ -1258,11 +1258,10 @@
   - no_reboot_needed | bool
   - restrict_strategy | bool
 
-- name: Set Fact - Installed GPG Fingerprints
+- name: 'Ensure Red Hat GPG Key Installed: Set Fact - Installed GPG Fingerprints'
   ansible.builtin.set_fact:
-    gpg_installed_fingerprints: '{{ gpg_fingerprints.stdout | regex_findall(''^pub.*
-
-      (?:^fpr[:]*)([0-9A-Fa-f]*)'', ''\1'') | list }}'
+    gpg_installed_fingerprints: '{{ gpg_fingerprints.stdout | regex_findall(''^pub.*\n(?:^fpr[:]*)([0-9A-Fa-f]*)'', ''\1'')
+      | list }}'
   tags:
   - CCE-84180-9
   - CJIS-5.10.4.1
@@ -1291,7 +1290,7 @@
   - no_reboot_needed | bool
   - restrict_strategy | bool
 
-- name: Set Fact - Valid fingerprints
+- name: 'Ensure Red Hat GPG Key Installed: Set Fact - Valid fingerprints'
   ansible.builtin.set_fact:
     gpg_valid_fingerprints:
     - 567E347AD0044ADE55BA8A5F199E2F91FD431D51
@@ -1324,10 +1323,8 @@
   - no_reboot_needed | bool
   - restrict_strategy | bool
 
-- name: Import RedHat GPG key
-  ansible.builtin.rpm_key:
-    state: present
-    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+- name: 'Ensure Red Hat GPG Key Installed: Import RedHat GPG key'
+  ansible.builtin.command: rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
   when:
   - DISA_STIG_RHEL_09_214010 | bool
   - ensure_redhat_gpgkey_installed | bool
@@ -1907,7 +1904,7 @@
     - name: Limit Password Reuse - Check if /etc/pam.d/system-auth file is present
       ansible.builtin.stat:
         path: /etc/pam.d/system-auth
-      register: result_pam_file_present
+      register: result_pam_auth_file_present
     - name: Limit Password Reuse - Check the proper remediation for the system
       block:
       - name: Limit Password Reuse - Define the PAM file to be edited as a local fact
@@ -2047,7 +2044,8 @@
           regexp: (.*password.*pam_pwhistory.so.*)\bremember\b=?[0-9a-zA-Z]*(.*)
           replace: \1\2
         register: result_pam_option_removal
-        when: result_pam_file_present.stat.exists
+        when:
+        - result_pam_file_present.stat.exists
       - name: Limit Password Reuse - Ensure authselect changes are applied
         ansible.builtin.command:
           cmd: authselect apply-changes -b
@@ -2055,7 +2053,7 @@
         - result_authselect_present.stat.exists
         - result_pam_option_removal is changed
       when:
-      - result_pam_file_present.stat.exists
+      - result_pam_auth_file_present.stat.exists
   when:
   - accounts_password_pam_unix_remember | bool
   - configure_strategy | bool
@@ -2560,7 +2558,7 @@
   - name: Lock Accounts After Failed Password Attempts - Check if /etc/pam.d/system-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/system-auth
-    register: result_pam_file_present
+    register: result_pam_auth_file_present
   - name: Lock Accounts After Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Lock Accounts After Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -2703,7 +2701,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bdeny\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Lock Accounts After Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -2711,11 +2710,11 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_auth_file_present.stat.exists
   - name: Lock Accounts After Failed Password Attempts - Check if /etc/pam.d/password-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/password-auth
-    register: result_pam_file_present
+    register: result_pam_password_auth_file_present
   - name: Lock Accounts After Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Lock Accounts After Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -2858,7 +2857,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bdeny\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Lock Accounts After Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -2866,7 +2866,7 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_password_auth_file_present.stat.exists
   when:
   - DISA_STIG_RHEL_09_411075 | bool
   - accounts_passwords_pam_faillock_deny | bool
@@ -3211,7 +3211,7 @@
   - name: Configure the root Account for Failed Password Attempts - Check if /etc/pam.d/system-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/system-auth
-    register: result_pam_file_present
+    register: result_pam_auth_file_present
   - name: Configure the root Account for Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Configure the root Account for Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -3360,7 +3360,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\beven_deny_root\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Configure the root Account for Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -3368,11 +3369,11 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_auth_file_present.stat.exists
   - name: Configure the root Account for Failed Password Attempts - Check if /etc/pam.d/password-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/password-auth
-    register: result_pam_file_present
+    register: result_pam_password_auth_file_present
   - name: Configure the root Account for Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Configure the root Account for Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -3521,7 +3522,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\beven_deny_root\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Configure the root Account for Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -3529,7 +3531,7 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_password_auth_file_present.stat.exists
   when:
   - DISA_STIG_RHEL_09_411080 | bool
   - accounts_passwords_pam_faillock_deny_root | bool
@@ -3836,7 +3838,7 @@
   - name: Set Interval For Counting Failed Password Attempts - Check if /etc/pam.d/system-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/system-auth
-    register: result_pam_file_present
+    register: result_pam_auth_file_present
   - name: Set Interval For Counting Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Set Interval For Counting Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -3983,7 +3985,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bfail_interval\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Set Interval For Counting Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -3991,11 +3994,11 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_auth_file_present.stat.exists
   - name: Set Interval For Counting Failed Password Attempts - Check if /etc/pam.d/password-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/password-auth
-    register: result_pam_file_present
+    register: result_pam_password_auth_file_present
   - name: Set Interval For Counting Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Set Interval For Counting Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -4142,7 +4145,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bfail_interval\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Set Interval For Counting Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -4150,7 +4154,7 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_password_auth_file_present.stat.exists
   when:
   - DISA_STIG_RHEL_09_411085 | bool
   - accounts_passwords_pam_faillock_interval | bool
@@ -4502,7 +4506,7 @@
   - name: Set Lockout Time for Failed Password Attempts - Check if /etc/pam.d/system-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/system-auth
-    register: result_pam_file_present
+    register: result_pam_auth_file_present
   - name: Set Lockout Time for Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Set Lockout Time for Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -4646,7 +4650,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bunlock_time\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Set Lockout Time for Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -4654,11 +4659,11 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_auth_file_present.stat.exists
   - name: Set Lockout Time for Failed Password Attempts - Check if /etc/pam.d/password-auth file is present
     ansible.builtin.stat:
       path: /etc/pam.d/password-auth
-    register: result_pam_file_present
+    register: result_pam_password_auth_file_present
   - name: Set Lockout Time for Failed Password Attempts - Check the proper remediation for the system
     block:
     - name: Set Lockout Time for Failed Password Attempts - Define the PAM file to be edited as a local fact
@@ -4802,7 +4807,8 @@
         regexp: (.*auth.*pam_faillock.so.*)\bunlock_time\b=?[0-9a-zA-Z]*(.*)
         replace: \1\2
       register: result_pam_option_removal
-      when: result_pam_file_present.stat.exists
+      when:
+      - result_pam_file_present.stat.exists
     - name: Set Lockout Time for Failed Password Attempts - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
@@ -4810,7 +4816,7 @@
       - result_authselect_present.stat.exists
       - result_pam_option_removal is changed
     when:
-    - result_pam_file_present.stat.exists
+    - result_pam_password_auth_file_present.stat.exists
   when:
   - DISA_STIG_RHEL_09_411090 | bool
   - accounts_passwords_pam_faillock_unlock_time | bool
@@ -5437,7 +5443,7 @@
     file is present
   ansible.builtin.stat:
     path: /etc/pam.d/password-auth
-  register: result_pam_file_present
+  register: result_pam_password_auth_file_present
   when:
   - accounts_password_pam_retry | bool
   - configure_strategy | bool
@@ -5618,7 +5624,8 @@
       regexp: (.*password.*pam_pwquality.so.*)\bretry\b=?[0-9a-zA-Z]*(.*)
       replace: \1\2
     register: result_pam_option_removal
-    when: result_pam_file_present.stat.exists
+    when:
+    - result_pam_file_present.stat.exists
   - name: Ensure PAM Enforces Password Requirements - Authentication Retry Prompts Permitted Per-Session - Ensure authselect
       changes are applied
     ansible.builtin.command:
@@ -5635,7 +5642,7 @@
   - no_reboot_needed | bool
   - '"kernel-core" in ansible_facts.packages'
   - '"libpwquality" in ansible_facts.packages'
-  - result_pam_file_present.stat.exists
+  - result_pam_password_auth_file_present.stat.exists
   tags:
   - CCE-83569-4
   - CJIS-5.5.3
@@ -5653,7 +5660,7 @@
     file is present
   ansible.builtin.stat:
     path: /etc/pam.d/system-auth
-  register: result_pam_file_present
+  register: result_pam_auth_file_present
   when:
   - accounts_password_pam_retry | bool
   - configure_strategy | bool
@@ -5834,7 +5841,8 @@
       regexp: (.*password.*pam_pwquality.so.*)\bretry\b=?[0-9a-zA-Z]*(.*)
       replace: \1\2
     register: result_pam_option_removal
-    when: result_pam_file_present.stat.exists
+    when:
+    - result_pam_file_present.stat.exists
   - name: Ensure PAM Enforces Password Requirements - Authentication Retry Prompts Permitted Per-Session - Ensure authselect
       changes are applied
     ansible.builtin.command:
@@ -5851,7 +5859,7 @@
   - no_reboot_needed | bool
   - '"kernel-core" in ansible_facts.packages'
   - '"libpwquality" in ansible_facts.packages'
-  - result_pam_file_present.stat.exists
+  - result_pam_auth_file_present.stat.exists
   tags:
   - CCE-83569-4
   - CJIS-5.5.3
@@ -5957,10 +5965,10 @@
   - no_reboot_needed
   - restrict_strategy
 
-- name: Set PAM's Password Hashing Algorithm - Check if /etc/pam.d/system-auth file is present
+- name: Set PAM Password Hashing Algorithm - system-auth - Check if /etc/pam.d/system-auth file is present
   ansible.builtin.stat:
     path: /etc/pam.d/system-auth
-  register: result_pam_file_present
+  register: result_pam_auth_file_present
   when:
   - configure_strategy | bool
   - low_complexity | bool
@@ -5987,25 +5995,26 @@
   - no_reboot_needed
   - set_password_hashing_algorithm_systemauth
 
-- name: Set PAM's Password Hashing Algorithm - Check the proper remediation for the system
+- name: Set PAM Password Hashing Algorithm - system-auth - Check the proper remediation for the system
   block:
-  - name: Set PAM's Password Hashing Algorithm - Define the PAM file to be edited as a local fact
+  - name: Set PAM Password Hashing Algorithm - system-auth - Define the PAM file to be edited as a local fact
     ansible.builtin.set_fact:
       pam_file_path: /etc/pam.d/system-auth
-  - name: Set PAM's Password Hashing Algorithm - Check if system relies on authselect tool
+  - name: Set PAM Password Hashing Algorithm - system-auth - Check if system relies on authselect tool
     ansible.builtin.stat:
       path: /usr/bin/authselect
     register: result_authselect_present
-  - name: Set PAM's Password Hashing Algorithm - Ensure authselect custom profile is used if authselect is present
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect custom profile is used if authselect is present
     block:
-    - name: Set PAM's Password Hashing Algorithm - Check integrity of authselect current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Check integrity of authselect current profile
       ansible.builtin.command:
         cmd: authselect check
       register: result_authselect_check_cmd
       changed_when: false
       check_mode: false
       failed_when: false
-    - name: Set PAM's Password Hashing Algorithm - Informative message based on the authselect integrity check result
+    - name: Set PAM Password Hashing Algorithm - system-auth - Informative message based on the authselect integrity check
+        result
       ansible.builtin.assert:
         that:
         - ansible_check_mode or result_authselect_check_cmd.rc == 0
@@ -6017,28 +6026,29 @@
         - In cases where the default authselect profile does not cover a specific demand, a custom authselect profile is recommended.
         success_msg:
         - authselect integrity check passed
-    - name: Set PAM's Password Hashing Algorithm - Get authselect current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Get authselect current profile
       ansible.builtin.shell:
         cmd: authselect current -r | awk '{ print $1 }'
       register: result_authselect_profile
       changed_when: false
       when:
       - result_authselect_check_cmd is success
-    - name: Set PAM's Password Hashing Algorithm - Define the current authselect profile as a local fact
+    - name: Set PAM Password Hashing Algorithm - system-auth - Define the current authselect profile as a local fact
       ansible.builtin.set_fact:
         authselect_current_profile: '{{ result_authselect_profile.stdout }}'
         authselect_custom_profile: '{{ result_authselect_profile.stdout }}'
       when:
       - result_authselect_profile is not skipped
       - result_authselect_profile.stdout is match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Define the new authselect custom profile as a local fact
+    - name: Set PAM Password Hashing Algorithm - system-auth - Define the new authselect custom profile as a local fact
       ansible.builtin.set_fact:
         authselect_current_profile: '{{ result_authselect_profile.stdout }}'
         authselect_custom_profile: custom/hardening
       when:
       - result_authselect_profile is not skipped
       - result_authselect_profile.stdout is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Get authselect current features to also enable them in the custom profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Get authselect current features to also enable them in the
+        custom profile
       ansible.builtin.shell:
         cmd: authselect current | tail -n+3 | awk '{ print $2 }'
       register: result_authselect_features
@@ -6047,7 +6057,8 @@
       when:
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Check if any custom profile with the same name was already created
+    - name: Set PAM Password Hashing Algorithm - system-auth - Check if any custom profile with the same name was already
+        created
       ansible.builtin.stat:
         path: /etc/authselect/{{ authselect_custom_profile }}
       register: result_authselect_custom_profile_present
@@ -6055,7 +6066,7 @@
       when:
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Create an authselect custom profile based on the current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Create an authselect custom profile based on the current profile
       ansible.builtin.command:
         cmd: authselect create-profile hardening -b {{ authselect_current_profile }}
       when:
@@ -6063,7 +6074,7 @@
       - result_authselect_check_cmd is success
       - authselect_current_profile is not match("^(custom/|local)")
       - not result_authselect_custom_profile_present.stat.exists
-    - name: Set PAM's Password Hashing Algorithm - Create an authselect custom profile based on sssd profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Create an authselect custom profile based on sssd profile
       ansible.builtin.command:
         cmd: authselect create-profile hardening -b sssd
       when:
@@ -6071,7 +6082,7 @@
       - result_authselect_check_cmd is success
       - authselect_current_profile is match("local")
       - not result_authselect_custom_profile_present.stat.exists
-    - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b --backup=before-hardening-custom-profile
       when:
@@ -6079,7 +6090,7 @@
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
       - authselect_custom_profile is not match(authselect_current_profile)
-    - name: Set PAM's Password Hashing Algorithm - Ensure the authselect custom profile is selected
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure the authselect custom profile is selected
       ansible.builtin.command:
         cmd: authselect select {{ authselect_custom_profile }}
       register: result_pam_authselect_select_profile
@@ -6088,7 +6099,7 @@
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
       - authselect_custom_profile is not match(authselect_current_profile)
-    - name: Set PAM's Password Hashing Algorithm - Restore the authselect features in the custom profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Restore the authselect features in the custom profile
       ansible.builtin.command:
         cmd: authselect enable-feature {{ item }}
       loop: '{{ result_authselect_features.stdout_lines }}'
@@ -6097,24 +6108,27 @@
       - result_authselect_profile is not skipped
       - result_authselect_features is not skipped
       - result_pam_authselect_select_profile is not skipped
-    - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b --backup=after-hardening-custom-profile
       when:
       - result_authselect_check_cmd is success
       - result_authselect_profile is not skipped
       - result_pam_authselect_restore_features is not skipped
-    - name: Set PAM's Password Hashing Algorithm - Change the PAM file to be edited according to the custom authselect profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Change the PAM file to be edited according to the custom authselect
+        profile
       ansible.builtin.set_fact:
         pam_file_path: /etc/authselect/{{ authselect_custom_profile }}/{{ pam_file_path | basename }}
       when:
       - authselect_custom_profile is defined
     when:
     - result_authselect_present.stat.exists
-  - name: Set PAM's Password Hashing Algorithm - Define a fact for control already filtered in case filters are used
+  - name: Set PAM Password Hashing Algorithm - system-auth - Define a fact for control already filtered in case filters are
+      used
     ansible.builtin.set_fact:
       pam_module_control: sufficient
-  - name: Set PAM's Password Hashing Algorithm - Check if expected PAM module line is present in {{ pam_file_path }}
+  - name: Set PAM Password Hashing Algorithm - system-auth - Check if expected PAM module line is present in {{ pam_file_path
+      }}
     ansible.builtin.lineinfile:
       path: '{{ pam_file_path }}'
       regexp: ^\s*password\s+{{ pam_module_control | regex_escape() }}\s+pam_unix.so\s*.*
@@ -6122,10 +6136,10 @@
     check_mode: true
     changed_when: false
     register: result_pam_line_present
-  - name: Set PAM's Password Hashing Algorithm - Include or update the PAM module line in {{ pam_file_path }}
+  - name: Set PAM Password Hashing Algorithm - system-auth - Include or update the PAM module line in {{ pam_file_path }}
     block:
-    - name: Set PAM's Password Hashing Algorithm - Check if required PAM module line is present in {{ pam_file_path }} with
-        different control
+    - name: Set PAM Password Hashing Algorithm - system-auth - Check if required PAM module line is present in {{ pam_file_path
+        }} with different control
       ansible.builtin.lineinfile:
         path: '{{ pam_file_path }}'
         regexp: ^\s*password\s+.*\s+pam_unix.so\s*
@@ -6133,8 +6147,8 @@
       check_mode: true
       changed_when: false
       register: result_pam_line_other_control_present
-    - name: Set PAM's Password Hashing Algorithm - Ensure the correct control for the required PAM module line in {{ pam_file_path
-        }}
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure the correct control for the required PAM module line
+        in {{ pam_file_path }}
       ansible.builtin.replace:
         dest: '{{ pam_file_path }}'
         regexp: ^(\s*password\s+).*(\bpam_unix.so.*)
@@ -6142,14 +6156,15 @@
       register: result_pam_module_edit
       when:
       - result_pam_line_other_control_present.found == 1
-    - name: Set PAM's Password Hashing Algorithm - Ensure the required PAM module line is included in {{ pam_file_path }}
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure the required PAM module line is included in {{ pam_file_path
+        }}
       ansible.builtin.lineinfile:
         dest: '{{ pam_file_path }}'
         line: password    {{ pam_module_control }}    pam_unix.so
       register: result_pam_module_add
       when:
       - result_pam_line_other_control_present.found == 0 or result_pam_line_other_control_present.found > 1
-    - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b
       when:
@@ -6160,31 +6175,33 @@
     when:
     - result_pam_line_present.found is defined
     - result_pam_line_present.found == 0
-  - name: Set PAM's Password Hashing Algorithm - Define a fact for control already filtered in case filters are used
+  - name: Set PAM Password Hashing Algorithm - system-auth - Define a fact for control already filtered in case filters are
+      used
     ansible.builtin.set_fact:
       pam_module_control: sufficient
-  - name: Set PAM's Password Hashing Algorithm - Check if the required PAM module option is present in {{ pam_file_path }}
+  - name: Set PAM Password Hashing Algorithm - system-auth - Check if the required PAM module option is present in {{ pam_file_path
+      }}
     ansible.builtin.lineinfile:
       path: '{{ pam_file_path }}'
-      regexp: ^\s*password\s+{{ pam_module_control | regex_escape() }}\s+pam_unix.so\s*.*\s{{ var_password_hashing_algorithm_pam
+      regexp: ^\s*password\s+{{ pam_module_control | regex_escape() }}\s+pam_unix.so\s*.*\s{{ var_password_hashing_algorithm_pam.split("|")[0]
         }}\b
       state: absent
     check_mode: true
     changed_when: false
     register: result_pam_module_set_password_hashing_algorithm_systemauth_option_present
-  - name: Set PAM's Password Hashing Algorithm - Ensure the "{{ var_password_hashing_algorithm_pam }}" PAM option for "pam_unix.so"
-      is included in {{ pam_file_path }}
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure the "{{ var_password_hashing_algorithm_pam.split("|")[0]
+      }}" PAM option for "pam_unix.so" is included in {{ pam_file_path }}
     ansible.builtin.lineinfile:
       path: '{{ pam_file_path }}'
       backrefs: true
       regexp: ^(\s*password\s+{{ pam_module_control | regex_escape() }}\s+pam_unix.so.*)
-      line: \1 {{ var_password_hashing_algorithm_pam }}
+      line: \1 {{ var_password_hashing_algorithm_pam.split("|")[0] }}
       state: present
     register: result_pam_set_password_hashing_algorithm_systemauth_add
     when:
     - result_pam_module_set_password_hashing_algorithm_systemauth_option_present.found is defined
     - result_pam_module_set_password_hashing_algorithm_systemauth_option_present.found == 0
-  - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
     ansible.builtin.command:
       cmd: authselect apply-changes -b
     when:
@@ -6200,7 +6217,7 @@
   - set_password_hashing_algorithm_systemauth | bool
   - '"kernel-core" in ansible_facts.packages'
   - '"pam" in ansible_facts.packages'
-  - result_pam_file_present.stat.exists
+  - result_pam_auth_file_present.stat.exists
   tags:
   - CCE-83581-9
   - CJIS-5.6.2.2
@@ -6218,10 +6235,10 @@
   - no_reboot_needed
   - set_password_hashing_algorithm_systemauth
 
-- name: Set PAM's Password Hashing Algorithm - Check if /etc/pam.d/system-auth File is Present
+- name: Set PAM Password Hashing Algorithm - system-auth - Check if /etc/pam.d/system-auth File is Present
   ansible.builtin.stat:
     path: /etc/pam.d/system-auth
-  register: result_pam_file_present
+  register: result_pam_auth_file_present
   when:
   - configure_strategy | bool
   - low_complexity | bool
@@ -6248,25 +6265,26 @@
   - no_reboot_needed
   - set_password_hashing_algorithm_systemauth
 
-- name: Set PAM's Password Hashing Algorithm - Check The Proper Remediation For The System
+- name: Set PAM Password Hashing Algorithm - system-auth - Check The Proper Remediation For The System
   block:
-  - name: Set PAM's Password Hashing Algorithm - Define the PAM file to be edited as a local fact
+  - name: Set PAM Password Hashing Algorithm - system-auth - Define the PAM file to be edited as a local fact
     ansible.builtin.set_fact:
       pam_file_path: /etc/pam.d/system-auth
-  - name: Set PAM's Password Hashing Algorithm - Check if system relies on authselect tool
+  - name: Set PAM Password Hashing Algorithm - system-auth - Check if system relies on authselect tool
     ansible.builtin.stat:
       path: /usr/bin/authselect
     register: result_authselect_present
-  - name: Set PAM's Password Hashing Algorithm - Ensure authselect custom profile is used if authselect is present
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect custom profile is used if authselect is present
     block:
-    - name: Set PAM's Password Hashing Algorithm - Check integrity of authselect current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Check integrity of authselect current profile
       ansible.builtin.command:
         cmd: authselect check
       register: result_authselect_check_cmd
       changed_when: false
       check_mode: false
       failed_when: false
-    - name: Set PAM's Password Hashing Algorithm - Informative message based on the authselect integrity check result
+    - name: Set PAM Password Hashing Algorithm - system-auth - Informative message based on the authselect integrity check
+        result
       ansible.builtin.assert:
         that:
         - ansible_check_mode or result_authselect_check_cmd.rc == 0
@@ -6278,28 +6296,29 @@
         - In cases where the default authselect profile does not cover a specific demand, a custom authselect profile is recommended.
         success_msg:
         - authselect integrity check passed
-    - name: Set PAM's Password Hashing Algorithm - Get authselect current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Get authselect current profile
       ansible.builtin.shell:
         cmd: authselect current -r | awk '{ print $1 }'
       register: result_authselect_profile
       changed_when: false
       when:
       - result_authselect_check_cmd is success
-    - name: Set PAM's Password Hashing Algorithm - Define the current authselect profile as a local fact
+    - name: Set PAM Password Hashing Algorithm - system-auth - Define the current authselect profile as a local fact
       ansible.builtin.set_fact:
         authselect_current_profile: '{{ result_authselect_profile.stdout }}'
         authselect_custom_profile: '{{ result_authselect_profile.stdout }}'
       when:
       - result_authselect_profile is not skipped
       - result_authselect_profile.stdout is match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Define the new authselect custom profile as a local fact
+    - name: Set PAM Password Hashing Algorithm - system-auth - Define the new authselect custom profile as a local fact
       ansible.builtin.set_fact:
         authselect_current_profile: '{{ result_authselect_profile.stdout }}'
         authselect_custom_profile: custom/hardening
       when:
       - result_authselect_profile is not skipped
       - result_authselect_profile.stdout is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Get authselect current features to also enable them in the custom profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Get authselect current features to also enable them in the
+        custom profile
       ansible.builtin.shell:
         cmd: authselect current | tail -n+3 | awk '{ print $2 }'
       register: result_authselect_features
@@ -6308,7 +6327,8 @@
       when:
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Check if any custom profile with the same name was already created
+    - name: Set PAM Password Hashing Algorithm - system-auth - Check if any custom profile with the same name was already
+        created
       ansible.builtin.stat:
         path: /etc/authselect/{{ authselect_custom_profile }}
       register: result_authselect_custom_profile_present
@@ -6316,7 +6336,7 @@
       when:
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
-    - name: Set PAM's Password Hashing Algorithm - Create an authselect custom profile based on the current profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Create an authselect custom profile based on the current profile
       ansible.builtin.command:
         cmd: authselect create-profile hardening -b {{ authselect_current_profile }}
       when:
@@ -6324,7 +6344,7 @@
       - result_authselect_check_cmd is success
       - authselect_current_profile is not match("^(custom/|local)")
       - not result_authselect_custom_profile_present.stat.exists
-    - name: Set PAM's Password Hashing Algorithm - Create an authselect custom profile based on sssd profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Create an authselect custom profile based on sssd profile
       ansible.builtin.command:
         cmd: authselect create-profile hardening -b sssd
       when:
@@ -6332,7 +6352,7 @@
       - result_authselect_check_cmd is success
       - authselect_current_profile is match("local")
       - not result_authselect_custom_profile_present.stat.exists
-    - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b --backup=before-hardening-custom-profile
       when:
@@ -6340,7 +6360,7 @@
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
       - authselect_custom_profile is not match(authselect_current_profile)
-    - name: Set PAM's Password Hashing Algorithm - Ensure the authselect custom profile is selected
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure the authselect custom profile is selected
       ansible.builtin.command:
         cmd: authselect select {{ authselect_custom_profile }}
       register: result_pam_authselect_select_profile
@@ -6349,7 +6369,7 @@
       - result_authselect_profile is not skipped
       - authselect_current_profile is not match("custom/")
       - authselect_custom_profile is not match(authselect_current_profile)
-    - name: Set PAM's Password Hashing Algorithm - Restore the authselect features in the custom profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Restore the authselect features in the custom profile
       ansible.builtin.command:
         cmd: authselect enable-feature {{ item }}
       loop: '{{ result_authselect_features.stdout_lines }}'
@@ -6358,32 +6378,33 @@
       - result_authselect_profile is not skipped
       - result_authselect_features is not skipped
       - result_pam_authselect_select_profile is not skipped
-    - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+    - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
       ansible.builtin.command:
         cmd: authselect apply-changes -b --backup=after-hardening-custom-profile
       when:
       - result_authselect_check_cmd is success
       - result_authselect_profile is not skipped
       - result_pam_authselect_restore_features is not skipped
-    - name: Set PAM's Password Hashing Algorithm - Change the PAM file to be edited according to the custom authselect profile
+    - name: Set PAM Password Hashing Algorithm - system-auth - Change the PAM file to be edited according to the custom authselect
+        profile
       ansible.builtin.set_fact:
         pam_file_path: /etc/authselect/{{ authselect_custom_profile }}/{{ pam_file_path | basename }}
       when:
       - authselect_custom_profile is defined
     when:
     - result_authselect_present.stat.exists
-  - name: Set PAM's Password Hashing Algorithm - Check if "{{ pam_file_path }}" File is Present
+  - name: Set PAM Password Hashing Algorithm - system-auth - Check if "{{ pam_file_path }}" File is Present
     ansible.builtin.stat:
       path: '{{ pam_file_path }}'
     register: pam_file_path_present
-  - name: Set PAM's Password Hashing Algorithm - Ensure That Only the Correct Hashing Algorithm Option For pam_unix.so Is
-      Used in {{ pam_file_path }}
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure That Only the Correct Hashing Algorithm Option For pam_unix.so
+      Is Used in {{ pam_file_path }}
     ansible.builtin.replace:
       dest: '{{ pam_file_path }}'
       regexp: (^\s*password.*pam_unix\.so.*)\b{{ item }}\b\s*(.*)
       replace: \1\2
     when:
-    - item != var_password_hashing_algorithm_pam
+    - item != var_password_hashing_algorithm_pam.split('|')[0]
     - pam_file_path_present.stat.exists
     loop:
     - sha512
@@ -6394,7 +6415,7 @@
     - md5
     - bigcrypt
     register: result_pam_hashing_options_removal
-  - name: Set PAM's Password Hashing Algorithm - Ensure authselect changes are applied
+  - name: Set PAM Password Hashing Algorithm - system-auth - Ensure authselect changes are applied
     ansible.builtin.command:
       cmd: authselect apply-changes -b
     when:
@@ -6409,7 +6430,7 @@
   - set_password_hashing_algorithm_systemauth | bool
   - '"kernel-core" in ansible_facts.packages'
   - '"pam" in ansible_facts.packages'
-  - result_pam_file_present.stat.exists
+  - result_pam_auth_file_present.stat.exists
   tags:
   - CCE-83581-9
   - CJIS-5.6.2.2
@@ -6427,9 +6448,9 @@
   - no_reboot_needed
   - set_password_hashing_algorithm_systemauth
 
-- name: Set 'StopIdleSessionSec' to '{{ var_logind_session_timeout }}' in the [Login] section of '/etc/systemd/logind.conf'
+- name: Set 'StopIdleSessionSec' to '{{ var_logind_session_timeout }}' in the [Login] section of '/etc/systemd/logind.conf.d/oscap-idle-sessions.conf'
   community.general.ini_file:
-    path: /etc/systemd/logind.conf
+    path: /etc/systemd/logind.conf.d/oscap-idle-sessions.conf
     section: Login
     option: StopIdleSessionSec
     value: '{{ var_logind_session_timeout }}'
@@ -6446,7 +6467,7 @@
   - '"kernel-core" in ansible_facts.packages'
   - ( ansible_distribution == 'RedHat' and ansible_distribution_version is version('8.7', '>=') and ansible_distribution ==
     'RedHat' and ansible_distribution_version is version('9.0', '!=') ) or ansible_distribution == 'OracleLinux' and ansible_distribution_version
-    is version('8.7', '>=')
+    is version('8.7', '>=') or ansible_distribution == 'SLES' and ansible_distribution_version is version('15', '>=')
   tags:
   - CCE-90785-7
   - CJIS-5.5.6
@@ -6521,7 +6542,7 @@
 - name: Set number of Password Hashing Rounds - password-auth - Check if /etc/pam.d/password-auth file is present
   ansible.builtin.stat:
     path: /etc/pam.d/password-auth
-  register: result_pam_file_present
+  register: result_pam_password_auth_file_present
   when:
   - DISA_STIG_RHEL_09_611050 | bool
   - accounts_password_pam_unix_rounds_password_auth | bool
@@ -6775,7 +6796,7 @@
   - medium_severity | bool
   - no_reboot_needed | bool
   - ( "pam" in ansible_facts.packages and "kernel-core" in ansible_facts.packages )
-  - result_pam_file_present.stat.exists
+  - result_pam_password_auth_file_present.stat.exists
   tags:
   - CCE-83615-5
   - DISA-STIG-RHEL-09-611050
@@ -6789,7 +6810,7 @@
 - name: Set number of Password Hashing Rounds - system-auth - Check if /etc/pam.d/system-auth file is present
   ansible.builtin.stat:
     path: /etc/pam.d/system-auth
-  register: result_pam_file_present
+  register: result_pam_auth_file_present
   when:
   - DISA_STIG_RHEL_09_611055 | bool
   - accounts_password_pam_unix_rounds_system_auth | bool
@@ -7043,7 +7064,7 @@
   - medium_severity | bool
   - no_reboot_needed | bool
   - ( "pam" in ansible_facts.packages and "kernel-core" in ansible_facts.packages )
-  - result_pam_file_present.stat.exists
+  - result_pam_auth_file_present.stat.exists
   tags:
   - CCE-83621-3
   - DISA-STIG-RHEL-09-611055
@@ -9180,12 +9201,37 @@
   - sysctl_net_ipv6_conf_all_accept_ra_defrtr
   - unknown_severity
 
+- name: Configure Accepting Default Router in Router Advertisements on All IPv6 Interfaces - Comment out any occurrences of
+    net.ipv6.conf.all.accept_ra_defrtr from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.accept_ra_defrtr
+    replace: '#net.ipv6.conf.all.accept_ra_defrtr'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_accept_ra_defrtr | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84115-5
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_accept_ra_defrtr
+  - unknown_severity
+
 - name: Configure Accepting Default Router in Router Advertisements on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.accept_ra_defrtr
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.accept_ra_defrtr
     value: '{{ sysctl_net_ipv6_conf_all_accept_ra_defrtr_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_accept_ra_defrtr.conf
     state: present
     reload: true
   when:
@@ -9305,12 +9351,37 @@
   - sysctl_net_ipv6_conf_all_accept_ra_pinfo
   - unknown_severity
 
+- name: Configure Accepting Prefix Information in Router Advertisements on All IPv6 Interfaces - Comment out any occurrences
+    of net.ipv6.conf.all.accept_ra_pinfo from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.accept_ra_pinfo
+    replace: '#net.ipv6.conf.all.accept_ra_pinfo'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_accept_ra_pinfo | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84122-1
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_accept_ra_pinfo
+  - unknown_severity
+
 - name: Configure Accepting Prefix Information in Router Advertisements on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.accept_ra_pinfo
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.accept_ra_pinfo
     value: '{{ sysctl_net_ipv6_conf_all_accept_ra_pinfo_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_accept_ra_pinfo.conf
     state: present
     reload: true
   when:
@@ -9430,12 +9501,37 @@
   - sysctl_net_ipv6_conf_all_accept_ra_rtr_pref
   - unknown_severity
 
+- name: Configure Accepting Router Preference in Router Advertisements on All IPv6 Interfaces - Comment out any occurrences
+    of net.ipv6.conf.all.accept_ra_rtr_pref from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.accept_ra_rtr_pref
+    replace: '#net.ipv6.conf.all.accept_ra_rtr_pref'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_accept_ra_rtr_pref | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84111-4
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_accept_ra_rtr_pref
+  - unknown_severity
+
 - name: Configure Accepting Router Preference in Router Advertisements on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.accept_ra_rtr_pref
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.accept_ra_rtr_pref
     value: '{{ sysctl_net_ipv6_conf_all_accept_ra_rtr_pref_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_accept_ra_rtr_pref.conf
     state: present
     reload: true
   when:
@@ -9586,11 +9682,44 @@
   - reboot_required
   - sysctl_net_ipv6_conf_all_accept_redirects
 
+- name: Disable Accepting ICMP Redirects for All IPv6 Interfaces - Comment out any occurrences of net.ipv6.conf.all.accept_redirects
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.accept_redirects
+    replace: '#net.ipv6.conf.all.accept_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_254015 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_accept_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84125-4
+  - DISA-STIG-RHEL-09-254015
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-6(b)
+  - NIST-800-53-CM-6.1(iv)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_accept_redirects
+
 - name: Disable Accepting ICMP Redirects for All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.accept_redirects is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.accept_redirects
     value: '{{ sysctl_net_ipv6_conf_all_accept_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_accept_redirects.conf
     state: present
     reload: true
   when:
@@ -9742,12 +9871,43 @@
   - reboot_required
   - sysctl_net_ipv6_conf_all_accept_source_route
 
+- name: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv6 Interfaces - Comment out any occurrences
+    of net.ipv6.conf.all.accept_source_route from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.accept_source_route
+    replace: '#net.ipv6.conf.all.accept_source_route'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_254020 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_accept_source_route | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84131-2
+  - DISA-STIG-RHEL-09-254020
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_accept_source_route
+
 - name: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.accept_source_route
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.accept_source_route
     value: '{{ sysctl_net_ipv6_conf_all_accept_source_route_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_accept_source_route.conf
     state: present
     reload: true
   when:
@@ -9872,11 +10032,36 @@
   - sysctl_net_ipv6_conf_all_autoconf
   - unknown_severity
 
+- name: Configure Auto Configuration on All IPv6 Interfaces - Comment out any occurrences of net.ipv6.conf.all.autoconf from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.autoconf
+    replace: '#net.ipv6.conf.all.autoconf'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_autoconf | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84126-2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_autoconf
+  - unknown_severity
+
 - name: Configure Auto Configuration on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.autoconf is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.autoconf
     value: '{{ sysctl_net_ipv6_conf_all_autoconf_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_autoconf.conf
     state: present
     reload: true
   when:
@@ -9995,12 +10180,37 @@
   - sysctl_net_ipv6_conf_all_max_addresses
   - unknown_severity
 
+- name: Configure Maximum Number of Autoconfigured Addresses on All IPv6 Interfaces - Comment out any occurrences of net.ipv6.conf.all.max_addresses
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.max_addresses
+    replace: '#net.ipv6.conf.all.max_addresses'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_max_addresses | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84112-2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_max_addresses
+  - unknown_severity
+
 - name: Configure Maximum Number of Autoconfigured Addresses on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.max_addresses
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.max_addresses
     value: '{{ sysctl_net_ipv6_conf_all_max_addresses_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_max_addresses.conf
     state: present
     reload: true
   when:
@@ -10119,12 +10329,37 @@
   - sysctl_net_ipv6_conf_all_router_solicitations
   - unknown_severity
 
+- name: Configure Denying Router Solicitations on All IPv6 Interfaces - Comment out any occurrences of net.ipv6.conf.all.router_solicitations
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.all.router_solicitations
+    replace: '#net.ipv6.conf.all.router_solicitations'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_all_router_solicitations | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84128-8
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_all_router_solicitations
+  - unknown_severity
+
 - name: Configure Denying Router Solicitations on All IPv6 Interfaces - Ensure sysctl net.ipv6.conf.all.router_solicitations
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.router_solicitations
     value: '{{ sysctl_net_ipv6_conf_all_router_solicitations_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_all_router_solicitations.conf
     state: present
     reload: true
   when:
@@ -10245,12 +10480,37 @@
   - sysctl_net_ipv6_conf_default_accept_ra_defrtr
   - unknown_severity
 
+- name: Configure Accepting Default Router in Router Advertisements on All IPv6 Interfaces By Default - Comment out any occurrences
+    of net.ipv6.conf.default.accept_ra_defrtr from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.accept_ra_defrtr
+    replace: '#net.ipv6.conf.default.accept_ra_defrtr'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_accept_ra_defrtr | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84116-3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_accept_ra_defrtr
+  - unknown_severity
+
 - name: Configure Accepting Default Router in Router Advertisements on All IPv6 Interfaces By Default - Ensure sysctl net.ipv6.conf.default.accept_ra_defrtr
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.accept_ra_defrtr
     value: '{{ sysctl_net_ipv6_conf_default_accept_ra_defrtr_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_accept_ra_defrtr.conf
     state: present
     reload: true
   when:
@@ -10371,12 +10631,37 @@
   - sysctl_net_ipv6_conf_default_accept_ra_pinfo
   - unknown_severity
 
+- name: Configure Accepting Prefix Information in Router Advertisements on All IPv6 Interfaces By Default - Comment out any
+    occurrences of net.ipv6.conf.default.accept_ra_pinfo from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.accept_ra_pinfo
+    replace: '#net.ipv6.conf.default.accept_ra_pinfo'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_accept_ra_pinfo | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84118-9
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_accept_ra_pinfo
+  - unknown_severity
+
 - name: Configure Accepting Prefix Information in Router Advertisements on All IPv6 Interfaces By Default - Ensure sysctl
     net.ipv6.conf.default.accept_ra_pinfo is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.accept_ra_pinfo
     value: '{{ sysctl_net_ipv6_conf_default_accept_ra_pinfo_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_accept_ra_pinfo.conf
     state: present
     reload: true
   when:
@@ -10497,12 +10782,37 @@
   - sysctl_net_ipv6_conf_default_accept_ra_rtr_pref
   - unknown_severity
 
+- name: Configure Accepting Router Preference in Router Advertisements on All IPv6 Interfaces By Default - Comment out any
+    occurrences of net.ipv6.conf.default.accept_ra_rtr_pref from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.accept_ra_rtr_pref
+    replace: '#net.ipv6.conf.default.accept_ra_rtr_pref'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_accept_ra_rtr_pref | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84121-3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_accept_ra_rtr_pref
+  - unknown_severity
+
 - name: Configure Accepting Router Preference in Router Advertisements on All IPv6 Interfaces By Default - Ensure sysctl net.ipv6.conf.default.accept_ra_rtr_pref
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.accept_ra_rtr_pref
     value: '{{ sysctl_net_ipv6_conf_default_accept_ra_rtr_pref_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_accept_ra_rtr_pref.conf
     state: present
     reload: true
   when:
@@ -10646,12 +10956,43 @@
   - reboot_required
   - sysctl_net_ipv6_conf_default_accept_redirects
 
+- name: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv6 Interfaces - Comment out any occurrences
+    of net.ipv6.conf.default.accept_redirects from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.accept_redirects
+    replace: '#net.ipv6.conf.default.accept_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_254035 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_accept_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84113-0
+  - DISA-STIG-RHEL-09-254035
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_accept_redirects
+
 - name: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv6 Interfaces - Ensure sysctl net.ipv6.conf.default.accept_redirects
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.accept_redirects
     value: '{{ sysctl_net_ipv6_conf_default_accept_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_accept_redirects.conf
     state: present
     reload: true
   when:
@@ -10821,12 +11162,48 @@
   - reboot_required
   - sysctl_net_ipv6_conf_default_accept_source_route
 
+- name: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv6 Interfaces by Default - Comment out any occurrences
+    of net.ipv6.conf.default.accept_source_route from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.accept_source_route
+    replace: '#net.ipv6.conf.default.accept_source_route'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_254040 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_accept_source_route | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84130-4
+  - DISA-STIG-RHEL-09-254040
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-6(b)
+  - NIST-800-53-CM-6.1(iv)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - PCI-DSS-Req-1.4.3
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_accept_source_route
+
 - name: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv6 Interfaces by Default - Ensure sysctl net.ipv6.conf.default.accept_source_route
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.accept_source_route
     value: '{{ sysctl_net_ipv6_conf_default_accept_source_route_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_accept_source_route.conf
     state: present
     reload: true
   when:
@@ -10956,11 +11333,36 @@
   - sysctl_net_ipv6_conf_default_autoconf
   - unknown_severity
 
+- name: Configure Auto Configuration on All IPv6 Interfaces By Default - Comment out any occurrences of net.ipv6.conf.default.autoconf
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.autoconf
+    replace: '#net.ipv6.conf.default.autoconf'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_autoconf | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84133-8
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_autoconf
+  - unknown_severity
+
 - name: Configure Auto Configuration on All IPv6 Interfaces By Default - Ensure sysctl net.ipv6.conf.default.autoconf is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.autoconf
     value: '{{ sysctl_net_ipv6_conf_default_autoconf_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_autoconf.conf
     state: present
     reload: true
   when:
@@ -11080,12 +11482,37 @@
   - sysctl_net_ipv6_conf_default_max_addresses
   - unknown_severity
 
+- name: Configure Maximum Number of Autoconfigured Addresses on All IPv6 Interfaces By Default - Comment out any occurrences
+    of net.ipv6.conf.default.max_addresses from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.max_addresses
+    replace: '#net.ipv6.conf.default.max_addresses'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_max_addresses | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84117-1
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_max_addresses
+  - unknown_severity
+
 - name: Configure Maximum Number of Autoconfigured Addresses on All IPv6 Interfaces By Default - Ensure sysctl net.ipv6.conf.default.max_addresses
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.max_addresses
     value: '{{ sysctl_net_ipv6_conf_default_max_addresses_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_max_addresses.conf
     state: present
     reload: true
   when:
@@ -11204,12 +11631,37 @@
   - sysctl_net_ipv6_conf_default_router_solicitations
   - unknown_severity
 
+- name: Configure Denying Router Solicitations on All IPv6 Interfaces By Default - Comment out any occurrences of net.ipv6.conf.default.router_solicitations
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv6.conf.default.router_solicitations
+    replace: '#net.ipv6.conf.default.router_solicitations'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv6_conf_default_router_solicitations | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84026-4
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv6_conf_default_router_solicitations
+  - unknown_severity
+
 - name: Configure Denying Router Solicitations on All IPv6 Interfaces By Default - Ensure sysctl net.ipv6.conf.default.router_solicitations
     is set
   ansible.posix.sysctl:
     name: net.ipv6.conf.default.router_solicitations
     value: '{{ sysctl_net_ipv6_conf_default_router_solicitations_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv6_conf_default_router_solicitations.conf
     state: present
     reload: true
   when:
@@ -11327,12 +11779,37 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_accept_local
 
+- name: Disable Accepting Packets Routed Between Local Interfaces - Comment out any occurrences of net.ipv4.conf.all.accept_local
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.accept_local
+    replace: '#net.ipv4.conf.all.accept_local'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_accept_local | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89789-2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_accept_local
+
 - name: Disable Accepting Packets Routed Between Local Interfaces - Ensure sysctl net.ipv4.conf.all.accept_local is set to
     0
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.accept_local
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_accept_local.conf
     state: present
     reload: true
   when:
@@ -11483,11 +11960,44 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_accept_redirects
 
+- name: Disable Accepting ICMP Redirects for All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.accept_redirects
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.accept_redirects
+    replace: '#net.ipv4.conf.all.accept_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253015 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_accept_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84011-6
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253015
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-7(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_accept_redirects
+
 - name: Disable Accepting ICMP Redirects for All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.accept_redirects is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.accept_redirects
     value: '{{ sysctl_net_ipv4_conf_all_accept_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_accept_redirects.conf
     state: present
     reload: true
   when:
@@ -11647,12 +12157,45 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_accept_source_route
 
+- name: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv4 Interfaces - Comment out any occurrences
+    of net.ipv4.conf.all.accept_source_route from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.accept_source_route
+    replace: '#net.ipv4.conf.all.accept_source_route'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253020 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_accept_source_route | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84001-7
+  - DISA-STIG-RHEL-09-253020
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_accept_source_route
+
 - name: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.accept_source_route
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.accept_source_route
     value: '{{ sysctl_net_ipv4_conf_all_accept_source_route_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_accept_source_route.conf
     state: present
     reload: true
   when:
@@ -11779,11 +12322,36 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_arp_filter
 
+- name: Configure ARP filtering for All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.arp_filter from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.arp_filter
+    replace: '#net.ipv4.conf.all.arp_filter'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_arp_filter | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89555-7
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_arp_filter
+
 - name: Configure ARP filtering for All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.arp_filter is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.arp_filter
     value: '{{ sysctl_net_ipv4_conf_all_arp_filter_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_arp_filter.conf
     state: present
     reload: true
   when:
@@ -11902,11 +12470,36 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_arp_ignore
 
+- name: Configure Response Mode of ARP Requests for All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.arp_ignore
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.arp_ignore
+    replace: '#net.ipv4.conf.all.arp_ignore'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_arp_ignore | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89889-0
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_arp_ignore
+
 - name: Configure Response Mode of ARP Requests for All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.arp_ignore is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.arp_ignore
     value: '{{ sysctl_net_ipv4_conf_all_arp_ignore_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_arp_ignore.conf
     state: present
     reload: true
   when:
@@ -12024,12 +12617,37 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_drop_gratuitous_arp
 
+- name: Drop Gratuitous ARP frames on All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.drop_gratuitous_arp
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.drop_gratuitous_arp
+    replace: '#net.ipv4.conf.all.drop_gratuitous_arp'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_drop_gratuitous_arp | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89001-2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_drop_gratuitous_arp
+
 - name: Drop Gratuitous ARP frames on All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.drop_gratuitous_arp is set to
     1
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.drop_gratuitous_arp
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_drop_gratuitous_arp.conf
     state: present
     reload: true
   when:
@@ -12147,12 +12765,37 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_route_localnet
 
+- name: Prevent Routing External Traffic to Local Loopback on All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.route_localnet
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.route_localnet
+    replace: '#net.ipv4.conf.all.route_localnet'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_route_localnet | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89023-6
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_route_localnet
+
 - name: Prevent Routing External Traffic to Local Loopback on All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.route_localnet
     is set to 0
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.route_localnet
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_route_localnet.conf
     state: present
     reload: true
   when:
@@ -12311,12 +12954,47 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_rp_filter
 
+- name: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.rp_filter
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.rp_filter
+    replace: '#net.ipv4.conf.all.rp_filter'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253035 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_rp_filter | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84008-2
+  - DISA-STIG-RHEL-09-253035
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-7(a)
+  - PCI-DSS-Req-1.4.3
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_rp_filter
+
 - name: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.rp_filter
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.rp_filter
     value: '{{ sysctl_net_ipv4_conf_all_rp_filter_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_rp_filter.conf
     state: present
     reload: true
   when:
@@ -12478,12 +13156,45 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_secure_redirects
 
+- name: Disable Kernel Parameter for Accepting Secure ICMP Redirects on all IPv4 Interfaces - Comment out any occurrences
+    of net.ipv4.conf.all.secure_redirects from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.secure_redirects
+    replace: '#net.ipv4.conf.all.secure_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_secure_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84016-5
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-7(a)
+  - PCI-DSS-Req-1.4.3
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_secure_redirects
+
 - name: Disable Kernel Parameter for Accepting Secure ICMP Redirects on all IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.secure_redirects
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.secure_redirects
     value: '{{ sysctl_net_ipv4_conf_all_secure_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_secure_redirects.conf
     state: present
     reload: true
   when:
@@ -12610,12 +13321,37 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_shared_media
 
+- name: Configure Sending and Accepting Shared Media Redirects for All IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.shared_media
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.shared_media
+    replace: '#net.ipv4.conf.all.shared_media'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_shared_media | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89333-9
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_shared_media
+
 - name: Configure Sending and Accepting Shared Media Redirects for All IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.shared_media
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.shared_media
     value: '{{ sysctl_net_ipv4_conf_all_shared_media_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_shared_media.conf
     state: present
     reload: true
   when:
@@ -12779,12 +13515,48 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_accept_redirects
 
+- name: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv4 Interfaces - Comment out any occurrences
+    of net.ipv4.conf.default.accept_redirects from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.accept_redirects
+    replace: '#net.ipv4.conf.default.accept_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253040 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_accept_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84003-3
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253040
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-7(a)
+  - PCI-DSS-Req-1.4.3
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_accept_redirects
+
 - name: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv4 Interfaces - Ensure sysctl net.ipv4.conf.default.accept_redirects
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.accept_redirects
     value: '{{ sysctl_net_ipv4_conf_default_accept_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_accept_redirects.conf
     state: present
     reload: true
   when:
@@ -12947,12 +13719,45 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_accept_source_route
 
+- name: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv4 Interfaces by Default - Comment out any occurrences
+    of net.ipv4.conf.default.accept_source_route from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.accept_source_route
+    replace: '#net.ipv4.conf.default.accept_source_route'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253045 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_accept_source_route | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84007-4
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253045
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_accept_source_route
+
 - name: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv4 Interfaces by Default - Ensure sysctl net.ipv4.conf.default.accept_source_route
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.accept_source_route
     value: '{{ sysctl_net_ipv4_conf_default_accept_source_route_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_accept_source_route.conf
     state: present
     reload: true
   when:
@@ -13108,12 +13913,44 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_rp_filter
 
+- name: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces by Default - Comment out any occurrences
+    of net.ipv4.conf.default.rp_filter from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.rp_filter
+    replace: '#net.ipv4.conf.default.rp_filter'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253050 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_rp_filter | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84009-0
+  - DISA-STIG-RHEL-09-253050
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-7(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_rp_filter
+
 - name: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces by Default - Ensure sysctl net.ipv4.conf.default.rp_filter
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.rp_filter
     value: '{{ sysctl_net_ipv4_conf_default_rp_filter_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_rp_filter.conf
     state: present
     reload: true
   when:
@@ -13259,12 +14096,42 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_secure_redirects
 
+- name: Configure Kernel Parameter for Accepting Secure Redirects By Default - Comment out any occurrences of net.ipv4.conf.default.secure_redirects
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.secure_redirects
+    replace: '#net.ipv4.conf.default.secure_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_secure_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84019-9
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_secure_redirects
+
 - name: Configure Kernel Parameter for Accepting Secure Redirects By Default - Ensure sysctl net.ipv4.conf.default.secure_redirects
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.secure_redirects
     value: '{{ sysctl_net_ipv4_conf_default_secure_redirects_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_secure_redirects.conf
     state: present
     reload: true
   when:
@@ -13388,12 +14255,37 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_shared_media
 
+- name: Configure Sending and Accepting Shared Media Redirects by Default - Comment out any occurrences of net.ipv4.conf.default.shared_media
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.shared_media
+    replace: '#net.ipv4.conf.default.shared_media'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_shared_media | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-89444-4
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_shared_media
+
 - name: Configure Sending and Accepting Shared Media Redirects by Default - Ensure sysctl net.ipv4.conf.default.shared_media
     is set
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.shared_media
     value: '{{ sysctl_net_ipv4_conf_default_shared_media_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_shared_media.conf
     state: present
     reload: true
   when:
@@ -13548,12 +14440,46 @@
   - sysctl_net_ipv4_icmp_ignore_bogus_error_responses
   - unknown_severity
 
+- name: Enable Kernel Parameter to Ignore Bogus ICMP Error Responses on IPv4 Interfaces - Comment out any occurrences of net.ipv4.icmp_ignore_bogus_error_responses
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.icmp_ignore_bogus_error_responses
+    replace: '#net.ipv4.icmp_ignore_bogus_error_responses'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253060 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_icmp_ignore_bogus_error_responses | bool
+  - unknown_severity | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84015-7
+  - DISA-STIG-RHEL-09-253060
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - PCI-DSS-Req-1.4.3
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.2
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - reboot_required
+  - sysctl_net_ipv4_icmp_ignore_bogus_error_responses
+  - unknown_severity
+
 - name: Enable Kernel Parameter to Ignore Bogus ICMP Error Responses on IPv4 Interfaces - Ensure sysctl net.ipv4.icmp_ignore_bogus_error_responses
     is set
   ansible.posix.sysctl:
     name: net.ipv4.icmp_ignore_bogus_error_responses
     value: '{{ sysctl_net_ipv4_icmp_ignore_bogus_error_responses_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_icmp_ignore_bogus_error_responses.conf
     state: present
     reload: true
   when:
@@ -13681,11 +14607,36 @@
   - reboot_required
   - sysctl_net_ipv4_ip_local_port_range
 
+- name: Set Kernel Parameter to Increase Local Port Range - Comment out any occurrences of net.ipv4.ip_local_port_range from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.ip_local_port_range
+    replace: '#net.ipv4.ip_local_port_range'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_ip_local_port_range | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-90834-3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_ip_local_port_range
+
 - name: Set Kernel Parameter to Increase Local Port Range - Ensure sysctl net.ipv4.ip_local_port_range is set to 32768 65535
   ansible.posix.sysctl:
     name: net.ipv4.ip_local_port_range
     value: 32768 65535
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_ip_local_port_range.conf
     state: present
     reload: true
   when:
@@ -13804,11 +14755,36 @@
   - reboot_required
   - sysctl_net_ipv4_tcp_rfc1337
 
+- name: Enable Kernel Parameter to Use TCP RFC 1337 on IPv4 Interfaces - Comment out any occurrences of net.ipv4.tcp_rfc1337
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.tcp_rfc1337
+    replace: '#net.ipv4.tcp_rfc1337'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_tcp_rfc1337 | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84012-4
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_tcp_rfc1337
+
 - name: Enable Kernel Parameter to Use TCP RFC 1337 on IPv4 Interfaces - Ensure sysctl net.ipv4.tcp_rfc1337 is set
   ansible.posix.sysctl:
     name: net.ipv4.tcp_rfc1337
     value: '{{ sysctl_net_ipv4_tcp_rfc1337_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_tcp_rfc1337.conf
     state: present
     reload: true
   when:
@@ -13979,11 +14955,49 @@
   - reboot_required
   - sysctl_net_ipv4_tcp_syncookies
 
+- name: Enable Kernel Parameter to Use TCP Syncookies on Network Interfaces - Comment out any occurrences of net.ipv4.tcp_syncookies
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.tcp_syncookies
+    replace: '#net.ipv4.tcp_syncookies'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253010 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_tcp_syncookies | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84006-6
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253010
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5(1)
+  - NIST-800-53-SC-5(2)
+  - NIST-800-53-SC-5(3)(a)
+  - PCI-DSS-Req-1.4.1
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_tcp_syncookies
+
 - name: Enable Kernel Parameter to Use TCP Syncookies on Network Interfaces - Ensure sysctl net.ipv4.tcp_syncookies is set
   ansible.posix.sysctl:
     name: net.ipv4.tcp_syncookies
     value: '{{ sysctl_net_ipv4_tcp_syncookies_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_tcp_syncookies.conf
     state: present
     reload: true
   when:
@@ -14158,12 +15172,48 @@
   - reboot_required
   - sysctl_net_ipv4_conf_all_send_redirects
 
+- name: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces - Comment out any occurrences of net.ipv4.conf.all.send_redirects
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.all.send_redirects
+    replace: '#net.ipv4.conf.all.send_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253065 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_all_send_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83997-7
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253065
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.5
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_all_send_redirects
+
 - name: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces - Ensure sysctl net.ipv4.conf.all.send_redirects
     is set to 0
   ansible.posix.sysctl:
     name: net.ipv4.conf.all.send_redirects
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_all_send_redirects.conf
     state: present
     reload: true
   when:
@@ -14337,12 +15387,48 @@
   - reboot_required
   - sysctl_net_ipv4_conf_default_send_redirects
 
+- name: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces by Default - Comment out any occurrences
+    of net.ipv4.conf.default.send_redirects from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.conf.default.send_redirects
+    replace: '#net.ipv4.conf.default.send_redirects'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_253070 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_conf_default_send_redirects | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83999-3
+  - CJIS-5.10.1.1
+  - DISA-STIG-RHEL-09-253070
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.5
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_conf_default_send_redirects
+
 - name: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces by Default - Ensure sysctl net.ipv4.conf.default.send_redirects
     is set to 0
   ansible.posix.sysctl:
     name: net.ipv4.conf.default.send_redirects
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_conf_default_send_redirects.conf
     state: present
     reload: true
   when:
@@ -14511,11 +15597,46 @@
   - reboot_required
   - sysctl_net_ipv4_ip_forward
 
+- name: Disable Kernel Parameter for IP Forwarding on IPv4 Interfaces - Comment out any occurrences of net.ipv4.ip_forward
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.ipv4.ip_forward
+    replace: '#net.ipv4.ip_forward'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_ipv4_ip_forward | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83998-5
+  - NIST-800-171-3.1.20
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-7(a)
+  - NIST-800-53-CM-7(b)
+  - NIST-800-53-SC-5
+  - NIST-800-53-SC-7(a)
+  - PCI-DSS-Req-1.3.1
+  - PCI-DSS-Req-1.3.2
+  - PCI-DSSv4-1.4
+  - PCI-DSSv4-1.4.3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_ipv4_ip_forward
+
 - name: Disable Kernel Parameter for IP Forwarding on IPv4 Interfaces - Ensure sysctl net.ipv4.ip_forward is set to 0
   ansible.posix.sysctl:
     name: net.ipv4.ip_forward
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_ipv4_ip_forward.conf
     state: present
     reload: true
   when:
@@ -14733,7 +15854,6 @@
     search_paths: []
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14741,7 +15861,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14760,7 +15879,6 @@
   register: result_relevant_root_dirs
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14768,7 +15886,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14783,7 +15900,6 @@
   loop: '{{ result_relevant_root_dirs.files }}'
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14791,7 +15907,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14805,7 +15920,6 @@
     search_paths: '{{ search_paths | union([item.mount]) }}'
   loop: '{{ ansible_mounts }}'
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14816,7 +15930,6 @@
   - item.mount != '/'
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14830,7 +15943,6 @@
     search_paths: '{{ search_paths | union([item.device.split('':'')[1]]) }}'
   loop: '{{ ansible_mounts }}'
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14840,7 +15952,6 @@
   - item.device is search("localhost:")
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14853,7 +15964,6 @@
     world_writable_dirs: []
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14861,7 +15971,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14877,7 +15986,6 @@
   register: result_found_dirs
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14885,7 +15993,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14899,7 +16006,6 @@
     world_writable_dirs: '{{ world_writable_dirs | union(item.stdout_lines) | list }}'
   loop: '{{ result_found_dirs.results }}'
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -14909,7 +16015,6 @@
   - item is not skipped
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14924,7 +16029,6 @@
   loop: '{{ world_writable_dirs }}'
   tags:
   - CCE-83903-5
-  - DISA-STIG-RHEL-09-232240
   - dir_perms_world_writable_root_owned
   - low_complexity
   - medium_disruption
@@ -14932,7 +16036,6 @@
   - no_reboot_needed
   - restrict_strategy
   when:
-  - DISA_STIG_RHEL_09_232240 | bool
   - dir_perms_world_writable_root_owned | bool
   - low_complexity | bool
   - medium_disruption | bool
@@ -15580,11 +16683,37 @@
   - reboot_required
   - sysctl_fs_protected_fifos
 
+- name: Enable Kernel Parameter to Enforce DAC on FIFOs - Comment out any occurrences of fs.protected_fifos from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*fs.protected_fifos
+    replace: '#fs.protected_fifos'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_fs_protected_fifos | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-85884-5
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_fs_protected_fifos
+
 - name: Enable Kernel Parameter to Enforce DAC on FIFOs - Ensure sysctl fs.protected_fifos is set to 2
   ansible.posix.sysctl:
     name: fs.protected_fifos
     value: '2'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/fs_protected_fifos.conf
     state: present
     reload: true
   when:
@@ -15719,11 +16848,39 @@
   - reboot_required
   - sysctl_fs_protected_hardlinks
 
+- name: Enable Kernel Parameter to Enforce DAC on Hardlinks - Comment out any occurrences of fs.protected_hardlinks from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*fs.protected_hardlinks
+    replace: '#fs.protected_hardlinks'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213030 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_fs_protected_hardlinks | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-84110-6
+  - DISA-STIG-RHEL-09-213030
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_fs_protected_hardlinks
+
 - name: Enable Kernel Parameter to Enforce DAC on Hardlinks - Ensure sysctl fs.protected_hardlinks is set to 1
   ansible.posix.sysctl:
     name: fs.protected_hardlinks
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/fs_protected_hardlinks.conf
     state: present
     reload: true
   when:
@@ -15853,11 +17010,38 @@
   - reboot_required
   - sysctl_fs_protected_regular
 
+- name: Enable Kernel Parameter to Enforce DAC on Regular files - Comment out any occurrences of fs.protected_regular from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*fs.protected_regular
+    replace: '#fs.protected_regular'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_fs_protected_regular | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-85885-2
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_fs_protected_regular
+
 - name: Enable Kernel Parameter to Enforce DAC on Regular files - Ensure sysctl fs.protected_regular is set to 2
   ansible.posix.sysctl:
     name: fs.protected_regular
     value: '2'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/fs_protected_regular.conf
     state: present
     reload: true
   when:
@@ -15992,11 +17176,39 @@
   - reboot_required
   - sysctl_fs_protected_symlinks
 
+- name: Enable Kernel Parameter to Enforce DAC on Symlinks - Comment out any occurrences of fs.protected_symlinks from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*fs.protected_symlinks
+    replace: '#fs.protected_symlinks'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213035 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_fs_protected_symlinks | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83900-1
+  - DISA-STIG-RHEL-09-213035
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_fs_protected_symlinks
+
 - name: Enable Kernel Parameter to Enforce DAC on Symlinks - Ensure sysctl fs.protected_symlinks is set to 1
   ansible.posix.sysctl:
     name: fs.protected_symlinks
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/fs_protected_symlinks.conf
     state: present
     reload: true
   when:
@@ -17410,7 +18622,7 @@
   - restrict_strategy
 
 - name: 'Add noexec Option to /boot: Check information associated to mountpoint'
-  command: findmnt --fstab '/boot'
+  ansible.builtin.command: findmnt --fstab '/boot'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -17438,7 +18650,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - configure_strategy | bool
@@ -17497,7 +18709,8 @@
 
 - name: 'Add noexec Option to /boot: Make sure noexec option is part of the to /boot options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -17508,7 +18721,7 @@
   - ( not ( "kernel-core" in ansible_facts.packages and "rpm-ostree" in ansible_facts.packages and "bootc" in ansible_facts.packages
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83892-0
   - configure_strategy
@@ -17519,12 +18732,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /boot: Ensure /boot is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /boot
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -17547,7 +18765,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /boot: Check information associated to mountpoint'
-  command: findmnt --fstab '/boot'
+  ansible.builtin.command: findmnt --fstab '/boot'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -17583,7 +18801,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231100 | bool
@@ -17658,7 +18876,8 @@
 
 - name: 'Add nosuid Option to /boot: Make sure nosuid option is part of the to /boot options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231100 | bool
   - configure_strategy | bool
@@ -17670,7 +18889,7 @@
   - ( not ( "kernel-core" in ansible_facts.packages and "rpm-ostree" in ansible_facts.packages and "bootc" in ansible_facts.packages
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83877-1
   - DISA-STIG-RHEL-09-231100
@@ -17688,12 +18907,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /boot: Ensure /boot is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /boot
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231100 | bool
   - configure_strategy | bool
@@ -17724,7 +18948,7 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /home: Check information associated to mountpoint'
-  command: findmnt --fstab '/home'
+  ansible.builtin.command: findmnt --fstab '/home'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -17755,7 +18979,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231055 | bool
@@ -17820,7 +19044,8 @@
 
 - name: 'Add noexec Option to /home: Make sure noexec option is part of the to /home options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231055 | bool
   - configure_strategy | bool
@@ -17832,7 +19057,7 @@
   - ( not ( "kernel-core" in ansible_facts.packages and "rpm-ostree" in ansible_facts.packages and "bootc" in ansible_facts.packages
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83875-5
   - DISA-STIG-RHEL-09-231055
@@ -17845,12 +19070,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /home: Ensure /home is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /home
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231055 | bool
   - configure_strategy | bool
@@ -17876,7 +19106,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /home: Check information associated to mountpoint'
-  command: findmnt --fstab '/home'
+  ansible.builtin.command: findmnt --fstab '/home'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -17913,7 +19143,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231050 | bool
@@ -17990,7 +19220,8 @@
 
 - name: 'Add nosuid Option to /home: Make sure nosuid option is part of the to /home options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231050 | bool
   - configure_strategy | bool
@@ -18003,7 +19234,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/home" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83894-6
   - DISA-STIG-RHEL-09-231050
@@ -18021,12 +19252,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /home: Ensure /home is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /home
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231050 | bool
   - configure_strategy | bool
@@ -18110,6 +19346,7 @@
     - lustre
     - davfs
     - fuse.sshfs
+    - vfat
   when:
   - DISA_STIG_RHEL_09_231200 | bool
   - configure_strategy | bool
@@ -18156,8 +19393,11 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - item.mount is match('/\w')
+  - item.mount is not match('/(boot|efi)')
   - item.options is not search('nodev')
   - item.fstype not in excluded_fstypes
+  - (not accounts_polyinstantiated_var_tmp | default(false)) or item.mount != '/var/tmp/tmp-inst'
+  - (not accounts_polyinstantiated_tmp | default(false)) or item.mount != '/tmp/tmp-inst'
   with_items:
   - '{{ ansible_facts.mounts }}'
   tags:
@@ -18180,7 +19420,7 @@
     /etc/fstab'
   ansible.builtin.replace:
     path: /etc/fstab
-    regexp: ^\s*(?!#)(/dev/\S+|UUID=\S+)\s+(/\w\S*)\s+(\S+)\s+(?!.*\bnodev\b)(\S+)(.*)$
+    regexp: ^\s*(?!#)(/dev/\S+|UUID=\S+)\s+(/(?!boot|efi)\w\S*)\s+(?!vfat\s)(\S+)\s+(?!.*\bnodev\b)(\S+)(.*)$
     replace: \1 \2 \3 \4,nodev \5
   when:
   - DISA_STIG_RHEL_09_231200 | bool
@@ -18210,7 +19450,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /opt: Check information associated to mountpoint'
-  command: findmnt --fstab '/opt'
+  ansible.builtin.command: findmnt --fstab '/opt'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -18239,7 +19479,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - configure_strategy | bool
@@ -18300,7 +19540,8 @@
 
 - name: 'Add nosuid Option to /opt: Make sure nosuid option is part of the to /opt options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -18312,7 +19553,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/opt" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83880-5
   - configure_strategy
@@ -18323,12 +19564,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /opt: Ensure /opt is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /opt
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -18352,7 +19598,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /srv: Check information associated to mountpoint'
-  command: findmnt --fstab '/srv'
+  ansible.builtin.command: findmnt --fstab '/srv'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -18381,7 +19627,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - configure_strategy | bool
@@ -18442,7 +19688,8 @@
 
 - name: 'Add nosuid Option to /srv: Make sure nosuid option is part of the to /srv options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -18454,7 +19701,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/srv" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83862-3
   - configure_strategy
@@ -18465,12 +19712,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /srv: Ensure /srv is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /srv
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -18494,7 +19746,7 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /tmp: Check information associated to mountpoint'
-  command: findmnt --fstab '/tmp'
+  ansible.builtin.command: findmnt --fstab '/tmp'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -18531,7 +19783,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231130 | bool
@@ -18608,7 +19860,8 @@
 
 - name: 'Add noexec Option to /tmp: Make sure noexec option is part of the to /tmp options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231130 | bool
   - configure_strategy | bool
@@ -18621,7 +19874,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/tmp" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83885-4
   - DISA-STIG-RHEL-09-231130
@@ -18639,12 +19892,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /tmp: Ensure /tmp is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /tmp
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231130 | bool
   - configure_strategy | bool
@@ -18676,7 +19934,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /tmp: Check information associated to mountpoint'
-  command: findmnt --fstab '/tmp'
+  ansible.builtin.command: findmnt --fstab '/tmp'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -18713,7 +19971,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231135 | bool
@@ -18790,7 +20048,8 @@
 
 - name: 'Add nosuid Option to /tmp: Make sure nosuid option is part of the to /tmp options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231135 | bool
   - configure_strategy | bool
@@ -18803,7 +20062,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/tmp" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83872-2
   - DISA-STIG-RHEL-09-231135
@@ -18821,12 +20080,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /tmp: Ensure /tmp is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /tmp
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231135 | bool
   - configure_strategy | bool
@@ -18858,7 +20122,7 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var/log: Check information associated to mountpoint'
-  command: findmnt --fstab '/var/log'
+  ansible.builtin.command: findmnt --fstab '/var/log'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -18895,7 +20159,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231150 | bool
@@ -18972,7 +20236,8 @@
 
 - name: 'Add noexec Option to /var/log: Make sure noexec option is part of the to /var/log options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231150 | bool
   - configure_strategy | bool
@@ -18985,7 +20250,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var/log" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83887-0
   - DISA-STIG-RHEL-09-231150
@@ -19003,12 +20268,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var/log: Ensure /var/log is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /var/log
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231150 | bool
   - configure_strategy | bool
@@ -19040,7 +20310,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var/log: Check information associated to mountpoint'
-  command: findmnt --fstab '/var/log'
+  ansible.builtin.command: findmnt --fstab '/var/log'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -19077,7 +20347,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231155 | bool
@@ -19154,7 +20424,8 @@
 
 - name: 'Add nosuid Option to /var/log: Make sure nosuid option is part of the to /var/log options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231155 | bool
   - configure_strategy | bool
@@ -19167,7 +20438,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var/log" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83870-6
   - DISA-STIG-RHEL-09-231155
@@ -19185,12 +20456,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var/log: Ensure /var/log is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /var/log
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231155 | bool
   - configure_strategy | bool
@@ -19222,7 +20498,7 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var: Check information associated to mountpoint'
-  command: findmnt --fstab '/var'
+  ansible.builtin.command: findmnt --fstab '/var'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -19251,7 +20527,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - configure_strategy | bool
@@ -19312,7 +20588,8 @@
 
 - name: 'Add noexec Option to /var: Make sure noexec option is part of the to /var options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -19324,7 +20601,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83865-6
   - configure_strategy
@@ -19335,12 +20612,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var: Ensure /var is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /var
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -19364,7 +20646,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var: Check information associated to mountpoint'
-  command: findmnt --fstab '/var'
+  ansible.builtin.command: findmnt --fstab '/var'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -19393,7 +20675,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - configure_strategy | bool
@@ -19454,7 +20736,8 @@
 
 - name: 'Add nosuid Option to /var: Make sure nosuid option is part of the to /var options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -19466,7 +20749,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83867-2
   - configure_strategy
@@ -19477,12 +20760,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var: Ensure /var is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /var
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - configure_strategy | bool
   - high_disruption | bool
@@ -19506,7 +20794,7 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var/tmp: Check information associated to mountpoint'
-  command: findmnt --fstab '/var/tmp'
+  ansible.builtin.command: findmnt --fstab '/var/tmp'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -19537,7 +20825,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231180 | bool
@@ -19602,7 +20890,8 @@
 
 - name: 'Add noexec Option to /var/tmp: Make sure noexec option is part of the to /var/tmp options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',noexec'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''noexec'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231180 | bool
   - configure_strategy | bool
@@ -19615,7 +20904,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var/tmp" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "noexec" not in mount_info.options
+  - mount_info is defined and "noexec" not in (mount_info.options | default(''))
   tags:
   - CCE-83866-4
   - DISA-STIG-RHEL-09-231180
@@ -19627,12 +20916,17 @@
   - no_reboot_needed
 
 - name: 'Add noexec Option to /var/tmp: Ensure /var/tmp is mounted with noexec option'
-  mount:
+  ansible.posix.mount:
     path: /var/tmp
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231180 | bool
   - configure_strategy | bool
@@ -19658,7 +20952,7 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var/tmp: Check information associated to mountpoint'
-  command: findmnt --fstab '/var/tmp'
+  ansible.builtin.command: findmnt --fstab '/var/tmp'
   register: device_name
   failed_when: device_name.rc > 1
   changed_when: false
@@ -19689,7 +20983,7 @@
   set_fact:
     mount_info: '{{ mount_info|default({})|combine({item.0: item.1}) }}'
   with_together:
-  - '{{ device_name.stdout_lines[0].split() | list | lower }}'
+  - '{{ device_name.stdout_lines[0].split() | map(''lower'') | list }}'
   - '{{ device_name.stdout_lines[1].split() | list }}'
   when:
   - DISA_STIG_RHEL_09_231185 | bool
@@ -19754,7 +21048,8 @@
 
 - name: 'Add nosuid Option to /var/tmp: Make sure nosuid option is part of the to /var/tmp options'
   set_fact:
-    mount_info: '{{ mount_info | combine( {''options'':''''~mount_info.options~'',nosuid'' }) }}'
+    mount_info: '{{ mount_info | combine( {''options'':''''~(mount_info.options | default(''''))~('','' if (mount_info.options
+      | default('''')) else '''')~''nosuid'' }) }}'
   when:
   - DISA_STIG_RHEL_09_231185 | bool
   - configure_strategy | bool
@@ -19767,7 +21062,7 @@
     and not "openshift-kubelet" in ansible_facts.packages and "ostree" in ansible_proc_cmdline ) and not ( ansible_virtualization_type
     in ["docker", "lxc", "openvz", "podman", "container"] ) )
   - '"/var/tmp" in ansible_mounts | map(attribute="mount") | list'
-  - mount_info is defined and "nosuid" not in mount_info.options
+  - mount_info is defined and "nosuid" not in (mount_info.options | default(''))
   tags:
   - CCE-83863-1
   - DISA-STIG-RHEL-09-231185
@@ -19779,12 +21074,17 @@
   - no_reboot_needed
 
 - name: 'Add nosuid Option to /var/tmp: Ensure /var/tmp is mounted with nosuid option'
-  mount:
+  ansible.posix.mount:
     path: /var/tmp
-    src: '{{ mount_info.source }}'
-    opts: '{{ mount_info.options }}'
+    src: '{{ mount_info.source | default('''') }}'
+    opts: '{{ mount_info.options | default('''') }}'
     state: mounted
-    fstype: '{{ mount_info.fstype }}'
+    fstype: '{{ mount_info.fstype | default('''') }}'
+  register: mount_result
+  failed_when:
+  - mount_result is failed
+  - '''target is busy'' not in (mount_result.msg | default(''''))'
+  - '''already mounted'' not in (mount_result.msg | default(''''))'
   when:
   - DISA_STIG_RHEL_09_231185 | bool
   - configure_strategy | bool
@@ -19925,11 +21225,40 @@
   - reboot_required
   - sysctl_kernel_dmesg_restrict
 
+- name: Restrict Access to Kernel Message Buffer - Comment out any occurrences of kernel.dmesg_restrict from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.dmesg_restrict
+    replace: '#kernel.dmesg_restrict'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213010 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - low_severity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_kernel_dmesg_restrict | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83952-2
+  - DISA-STIG-RHEL-09-213010
+  - NIST-800-171-3.1.5
+  - NIST-800-53-SI-11(a)
+  - NIST-800-53-SI-11(b)
+  - disable_strategy
+  - low_complexity
+  - low_severity
+  - medium_disruption
+  - reboot_required
+  - sysctl_kernel_dmesg_restrict
+
 - name: Restrict Access to Kernel Message Buffer - Ensure sysctl kernel.dmesg_restrict is set to 1
   ansible.posix.sysctl:
     name: kernel.dmesg_restrict
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_dmesg_restrict.conf
     state: present
     reload: true
   when:
@@ -20050,11 +21379,35 @@
   - reboot_required
   - sysctl_kernel_panic_on_oops
 
+- name: Kernel panic on oops - Comment out any occurrences of kernel.panic_on_oops from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.panic_on_oops
+    replace: '#kernel.panic_on_oops'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_panic_on_oops | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-88666-3
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_panic_on_oops
+
 - name: Kernel panic on oops - Ensure sysctl kernel.panic_on_oops is set to 1
   ansible.posix.sysctl:
     name: kernel.panic_on_oops
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_panic_on_oops.conf
     state: present
     reload: true
   when:
@@ -20171,11 +21524,35 @@
   - reboot_required
   - sysctl_kernel_perf_cpu_time_max_percent
 
+- name: Limit CPU consumption of the Perf system - Comment out any occurrences of kernel.perf_cpu_time_max_percent from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.perf_cpu_time_max_percent
+    replace: '#kernel.perf_cpu_time_max_percent'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_perf_cpu_time_max_percent | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83969-6
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_perf_cpu_time_max_percent
+
 - name: Limit CPU consumption of the Perf system - Ensure sysctl kernel.perf_cpu_time_max_percent is set to 1
   ansible.posix.sysctl:
     name: kernel.perf_cpu_time_max_percent
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_perf_cpu_time_max_percent.conf
     state: present
     reload: true
   when:
@@ -20293,11 +21670,36 @@
   - reboot_required
   - sysctl_kernel_perf_event_max_sample_rate
 
+- name: Limit sampling frequency of the Perf system - Comment out any occurrences of kernel.perf_event_max_sample_rate from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.perf_event_max_sample_rate
+    replace: '#kernel.perf_event_max_sample_rate'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_perf_event_max_sample_rate | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83962-1
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_perf_event_max_sample_rate
+
 - name: Limit sampling frequency of the Perf system - Ensure sysctl kernel.perf_event_max_sample_rate is set to 1
   ansible.posix.sysctl:
     name: kernel.perf_event_max_sample_rate
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_perf_event_max_sample_rate.conf
     state: present
     reload: true
   when:
@@ -20426,11 +21828,38 @@
   - reboot_required
   - sysctl_kernel_perf_event_paranoid
 
+- name: Disallow kernel profiling by unprivileged users - Comment out any occurrences of kernel.perf_event_paranoid from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.perf_event_paranoid
+    replace: '#kernel.perf_event_paranoid'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213015 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - low_severity | bool
+  - medium_disruption | bool
+  - reboot_required | bool
+  - sysctl_kernel_perf_event_paranoid | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83959-7
+  - DISA-STIG-RHEL-09-213015
+  - NIST-800-53-AC-6
+  - disable_strategy
+  - low_complexity
+  - low_severity
+  - medium_disruption
+  - reboot_required
+  - sysctl_kernel_perf_event_paranoid
+
 - name: Disallow kernel profiling by unprivileged users - Ensure sysctl kernel.perf_event_paranoid is set to 2
   ansible.posix.sysctl:
     name: kernel.perf_event_paranoid
     value: '2'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_perf_event_paranoid.conf
     state: present
     reload: true
   when:
@@ -20549,11 +21978,35 @@
   - reboot_required
   - sysctl_kernel_pid_max
 
+- name: Configure maximum number of process identifiers - Comment out any occurrences of kernel.pid_max from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.pid_max
+    replace: '#kernel.pid_max'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_pid_max | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83960-5
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_pid_max
+
 - name: Configure maximum number of process identifiers - Ensure sysctl kernel.pid_max is set to 65536
   ansible.posix.sysctl:
     name: kernel.pid_max
     value: '65536'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_pid_max.conf
     state: present
     reload: true
   when:
@@ -20669,11 +22122,35 @@
   - reboot_required
   - sysctl_kernel_sysrq
 
+- name: Disallow magic SysRq key - Comment out any occurrences of kernel.sysrq from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.sysrq
+    replace: '#kernel.sysrq'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_sysrq | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83968-8
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_sysrq
+
 - name: Disallow magic SysRq key - Ensure sysctl kernel.sysrq is set to 0
   ansible.posix.sysctl:
     name: kernel.sysrq
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_sysrq.conf
     state: present
     reload: true
   when:
@@ -20807,12 +22284,41 @@
   - reboot_required
   - sysctl_kernel_unprivileged_bpf_disabled
 
+- name: Disable Access to Network bpf() Syscall From Unprivileged Processes - Comment out any occurrences of kernel.unprivileged_bpf_disabled
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.unprivileged_bpf_disabled
+    replace: '#kernel.unprivileged_bpf_disabled'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213075 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_unprivileged_bpf_disabled | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83957-1
+  - DISA-STIG-RHEL-09-213075
+  - NIST-800-53-AC-6
+  - NIST-800-53-SC-7(10)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_unprivileged_bpf_disabled
+
 - name: Disable Access to Network bpf() Syscall From Unprivileged Processes - Ensure sysctl kernel.unprivileged_bpf_disabled
     is set to 1
   ansible.posix.sysctl:
     name: kernel.unprivileged_bpf_disabled
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_unprivileged_bpf_disabled.conf
     state: present
     reload: true
   when:
@@ -20945,11 +22451,38 @@
   - reboot_required
   - sysctl_kernel_yama_ptrace_scope
 
+- name: Restrict usage of ptrace to descendant processes - Comment out any occurrences of kernel.yama.ptrace_scope from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.yama.ptrace_scope
+    replace: '#kernel.yama.ptrace_scope'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213080 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_yama_ptrace_scope | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83965-4
+  - DISA-STIG-RHEL-09-213080
+  - NIST-800-53-SC-7(10)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_yama_ptrace_scope
+
 - name: Restrict usage of ptrace to descendant processes - Ensure sysctl kernel.yama.ptrace_scope is set to 1
   ansible.posix.sysctl:
     name: kernel.yama.ptrace_scope
     value: '1'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_yama_ptrace_scope.conf
     state: present
     reload: true
   when:
@@ -21086,11 +22619,40 @@
   - reboot_required
   - sysctl_net_core_bpf_jit_harden
 
+- name: Harden the operation of the BPF just-in-time compiler - Comment out any occurrences of net.core.bpf_jit_harden from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*net.core.bpf_jit_harden
+    replace: '#net.core.bpf_jit_harden'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_251045 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_net_core_bpf_jit_harden | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83966-2
+  - DISA-STIG-RHEL-09-251045
+  - NIST-800-53-CM-6
+  - NIST-800-53-SC-7(10)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_net_core_bpf_jit_harden
+
 - name: Harden the operation of the BPF just-in-time compiler - Ensure sysctl net.core.bpf_jit_harden is set to 2
   ansible.posix.sysctl:
     name: net.core.bpf_jit_harden
     value: '2'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/net_core_bpf_jit_harden.conf
     state: present
     reload: true
   when:
@@ -21212,11 +22774,36 @@
   - reboot_required
   - sysctl_vm_mmap_min_addr
 
+- name: Prevent applications from mapping low portion of virtual memory - Comment out any occurrences of vm.mmap_min_addr
+    from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*vm.mmap_min_addr
+    replace: '#vm.mmap_min_addr'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_vm_mmap_min_addr | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83958-9
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_vm_mmap_min_addr
+
 - name: Prevent applications from mapping low portion of virtual memory - Ensure sysctl vm.mmap_min_addr is set to 65536
   ansible.posix.sysctl:
     name: vm.mmap_min_addr
     value: '65536'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/vm_mmap_min_addr.conf
     state: present
     reload: true
   when:
@@ -21352,11 +22939,40 @@
   - reboot_required
   - sysctl_fs_suid_dumpable
 
+- name: Disable Core Dumps for SUID programs - Comment out any occurrences of fs.suid_dumpable from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*fs.suid_dumpable
+    replace: '#fs.suid_dumpable'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_fs_suid_dumpable | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83981-1
+  - NIST-800-53-SI-11(a)
+  - NIST-800-53-SI-11(b)
+  - PCI-DSSv4-3.3
+  - PCI-DSSv4-3.3.1
+  - PCI-DSSv4-3.3.1.1
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_fs_suid_dumpable
+
 - name: Disable Core Dumps for SUID programs - Ensure sysctl fs.suid_dumpable is set to 0
   ansible.posix.sysctl:
     name: fs.suid_dumpable
     value: '0'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/fs_suid_dumpable.conf
     state: present
     reload: true
   when:
@@ -21503,11 +23119,41 @@
   - reboot_required
   - sysctl_kernel_kptr_restrict
 
+- name: Restrict Exposed Kernel Pointer Addresses Access - Comment out any occurrences of kernel.kptr_restrict from /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.kptr_restrict
+    replace: '#kernel.kptr_restrict'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213025 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_kptr_restrict | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83972-0
+  - DISA-STIG-RHEL-09-213025
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-SC-30
+  - NIST-800-53-SC-30(2)
+  - NIST-800-53-SC-30(5)
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_kptr_restrict
+
 - name: Restrict Exposed Kernel Pointer Addresses Access - Ensure sysctl kernel.kptr_restrict is set
   ansible.posix.sysctl:
     name: kernel.kptr_restrict
     value: '{{ sysctl_kernel_kptr_restrict_value }}'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_kptr_restrict.conf
     state: present
     reload: true
   when:
@@ -21670,11 +23316,46 @@
   - reboot_required
   - sysctl_kernel_randomize_va_space
 
+- name: Enable Randomized Layout of Virtual Address Space - Comment out any occurrences of kernel.randomize_va_space from
+    /etc/sysctl.conf
+  ansible.builtin.replace:
+    path: '{{ item }}'
+    regexp: ^[\s]*kernel.randomize_va_space
+    replace: '#kernel.randomize_va_space'
+  with_fileglob:
+  - /etc/sysctl.conf
+  when:
+  - DISA_STIG_RHEL_09_213070 | bool
+  - disable_strategy | bool
+  - low_complexity | bool
+  - medium_disruption | bool
+  - medium_severity | bool
+  - reboot_required | bool
+  - sysctl_kernel_randomize_va_space | bool
+  - '"kernel-core" in ansible_facts.packages'
+  tags:
+  - CCE-83971-2
+  - DISA-STIG-RHEL-09-213070
+  - NIST-800-171-3.1.7
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-SC-30
+  - NIST-800-53-SC-30(2)
+  - PCI-DSS-Req-2.2.1
+  - PCI-DSSv4-3.3
+  - PCI-DSSv4-3.3.1
+  - PCI-DSSv4-3.3.1.1
+  - disable_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - reboot_required
+  - sysctl_kernel_randomize_va_space
+
 - name: Enable Randomized Layout of Virtual Address Space - Ensure sysctl kernel.randomize_va_space is set to 2
   ansible.posix.sysctl:
     name: kernel.randomize_va_space
     value: '2'
-    sysctl_file: /etc/sysctl.conf
+    sysctl_file: /etc/sysctl.d/kernel_randomize_va_space.conf
     state: present
     reload: true
   when:
@@ -22206,7 +23887,7 @@
 - name: Ensure SELinux State is Enforcing - Check current SELinux state
   ansible.builtin.command:
     cmd: getenforce
-  register: selinux_state
+  register: current_selinux_state
   check_mode: false
   changed_when: false
   when:
@@ -22303,7 +23984,7 @@
   - restrict_strategy | bool
   - selinux_state | bool
   - '"kernel-core" in ansible_facts.packages'
-  - selinux_state.stdout | lower != var_selinux_state
+  - current_selinux_state.stdout | lower != var_selinux_state
   tags:
   - CCE-84079-3
   - DISA-STIG-RHEL-09-431010
@@ -23470,7 +25151,7 @@
       regexp: (?i)(?i)^\s*{{ "PermitRootLogin"| regex_escape }}\s+
       state: absent
     with_items: '{{ _etc_ssh_sshd_config_d_has_parameter.files }}'
-    when: _etc_ssh_sshd_config_d_has_parameter.matched
+    when: _etc_ssh_sshd_config_d_has_parameter.matched > 0
   - name: Insert correct line to /etc/ssh/sshd_config.d/00-complianceascode-hardening.conf
     ansible.builtin.lineinfile:
       path: /etc/ssh/sshd_config.d/00-complianceascode-hardening.conf
